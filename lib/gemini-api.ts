@@ -1,35 +1,67 @@
+/**
+ * Calls the Google Gemini API to enhance the resume text.
+ * Returns enhanced content and suggestions.
+ */
 export async function enhanceResumeWithGemini(
   resumeText: string,
   careerLevel: string,
 ): Promise<{ enhancedContent: any; suggestions: string[] }> {
   try {
-    // Simulated delay to mimic API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Generate career-specific suggestions
-    const suggestions = generateSuggestions(careerLevel)
-
-    // Mock enhanced content
-    const enhancedContent = {
-      contact_info: {
-        name: "John Doe",
-        email: "john.doe@example.com",
-        phone: "(555) 123-4567",
-        location: "New York, NY",
-        linkedin: "linkedin.com/in/johndoe",
-      },
-      professional_summary: getSummaryByLevel(careerLevel),
-      work_experience: getExperienceByLevel(careerLevel),
-      education: [
-        {
-          degree: "Bachelor of Science in Computer Science",
-          school: "University of Technology",
-          year: "2018",
-        },
-      ],
-      skills: getSkillsByLevel(careerLevel),
-      certifications: getCertificationsByLevel(careerLevel),
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      throw new Error("Gemini API key not set in environment (GEMINI_API_KEY)")
     }
+
+    // Gemini API endpoint (v1beta/models/gemini-pro:generateContent)
+    const endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + apiKey
+
+    // Prompt for Gemini
+    const prompt = `You are an expert resume writer. Given the following resume text, enhance it for ATS optimization, quantify achievements, use action verbs, and organize into professional sections. Return the result as a structured JSON object with keys: contact_info, professional_summary, work_experience, education, skills, certifications.\n\nResume Text:\n${resumeText}\n\nCareer Level: ${careerLevel}`
+
+    const body = {
+      contents: [
+        {
+          parts: [
+            { text: prompt }
+          ]
+        }
+      ]
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Gemini API error: ${response.status} ${errorText}`)
+    }
+
+    const data = await response.json()
+    // Gemini returns the result in data.candidates[0].content.parts[0].text
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!resultText) {
+      throw new Error("No content returned from Gemini API")
+    }
+
+    // Try to parse the result as JSON (Gemini may return markdown code block)
+    let enhancedContent: any = null
+    try {
+      // Remove markdown code block if present
+      const jsonMatch = resultText.match(/```json([\s\S]*?)```/)
+      const jsonString = jsonMatch ? jsonMatch[1] : resultText
+      enhancedContent = JSON.parse(jsonString)
+    } catch (e) {
+      // Fallback: return raw text
+      enhancedContent = { raw: resultText }
+    }
+
+    // Generate suggestions (local logic)
+    const suggestions = generateSuggestions(careerLevel)
 
     return { enhancedContent, suggestions }
   } catch (error) {

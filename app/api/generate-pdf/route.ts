@@ -6,18 +6,33 @@ export async function POST(request: NextRequest) {
     const { content } = await request.json()
 
     if (!content) {
-      return NextResponse.json({ message: "No content provided" }, { status: 400 })
+      return new NextResponse(JSON.stringify({ message: "No content provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
-    const pdfUrl = await generatePdf(content)
+    const pdfBytes = await generatePdf(content)
 
-    if (!pdfUrl) {
-      return NextResponse.json({ message: "Failed to generate PDF" }, { status: 500 })
+    if (!pdfBytes) {
+      return new NextResponse(JSON.stringify({ message: "Failed to generate PDF" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
-    return NextResponse.json({ pdfUrl })
+    return new NextResponse(pdfBytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "attachment; filename=resume.pdf",
+      },
+    })
   } catch (error) {
     console.error("Error generating PDF:", error)
-    return NextResponse.json({ message: "Error generating PDF" }, { status: 500 })
+    return new NextResponse(JSON.stringify({ message: "Error generating PDF" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }

@@ -1,16 +1,47 @@
-export async function generatePdf(content: any): Promise<string> {
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
+
+/**
+ * Generates a PDF from the provided resume content (plain text or structured object).
+ * Returns the PDF as a Uint8Array (file bytes).
+ */
+export async function generatePdf(content: string): Promise<Uint8Array> {
   try {
-    // In a real implementation, you would use a PDF generation library
-    // like jsPDF, react-pdf, or puppeteer to generate a PDF from the content
+    const pdfDoc = await PDFDocument.create()
+    const page = pdfDoc.addPage([595.28, 841.89]) // A4 size in points
+    const { width, height } = page.getSize()
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
-    // For now, we'll simulate the PDF generation
+    // Simple formatting: add title and content
+    const fontSize = 18
+    const margin = 40
+    let y = height - margin
 
-    // Simulated delay to mimic PDF generation
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Title
+    page.drawText("Resume", {
+      x: margin,
+      y,
+      size: fontSize + 6,
+      font,
+      color: rgb(0, 0.2, 0.6),
+    })
+    y -= fontSize + 16
 
-    // Return a mock PDF URL
-    // In a real implementation, this would be a URL to the generated PDF
-    return "/sample-resume.pdf"
+    // Content (split into lines for basic wrapping)
+    const lines = content.split(/\r?\n/)
+    for (const line of lines) {
+      if (y < margin + fontSize) break // avoid overflow
+      page.drawText(line, {
+        x: margin,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0, 0, 0),
+      })
+      y -= fontSize + 6
+    }
+
+    const pdfBytes = await pdfDoc.save()
+    return pdfBytes
   } catch (error) {
     console.error("Error generating PDF:", error)
     throw new Error("Failed to generate PDF")
